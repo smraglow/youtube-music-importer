@@ -2,6 +2,7 @@ from ytmusicapi import YTMusic
 import csv
 import os
 import time
+import tqdm
 
 MAX_RETRIES = 4 # times
 DELAY = 10  # seconds
@@ -10,11 +11,11 @@ ARTIST_COL = 'Artist Name(s)'  # Modify this to the header name for artists in y
 
 
 
-yt = YTMusic('oauth.json')
+yt = YTMusic('browser.json')
 
 # Fetch existing playlists once
 existing_playlists = {playlist['title']: playlist['playlistId'] for playlist in yt.get_library_playlists()}
-
+print(f"Existing playlists: {existing_playlists}")
 delay = DELAY
 
 def get_or_create_playlist(name):
@@ -25,16 +26,18 @@ def get_or_create_playlist(name):
     existing_playlists[name] = playlist_id
     return playlist_id
 
-csv_files = [file for file in os.listdir() if file.endswith('.csv')]
+csv_dir = os.path.join(os.path.dirname(__file__), 'csvs')
+csv_files = [os.path.join(csv_dir, file) for file in os.listdir(csv_dir) if file.endswith('.csv')]
 
 try:
     for csv_file in csv_files:
-        playlist_name = os.path.splitext(csv_file)[0] 
+        playlist_name = os.path.splitext(os.path.basename(csv_file))[0]
+        print(f"Processing CSV file: {csv_file}")
         playlistId = get_or_create_playlist(playlist_name)
         
         with open(csv_file, mode='r', encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
-            for row in reader:
+            for row in tqdm.tqdm(reader):
                 time.sleep(1)
                 track = row[TRACK_COL]
                 artist = row[ARTIST_COL]
@@ -55,6 +58,7 @@ try:
                                     break
 
                             if song_id:
+                                print(f"Adding '{track}' by {artist} to playlist '{playlist_name}'...")
                                 yt.add_playlist_items(playlistId, [song_id])
                                 print(f"Successfully added '{track}' by {artist} to playlist '{playlist_name}'.")
                                 success = True
